@@ -2,11 +2,11 @@ using UnityEngine;
 
 namespace MornLib
 {
-    public sealed class FindsAttribute : PropertyAttribute
+    public sealed class FindAssetNameAttribute : PropertyAttribute
     {
         public readonly string Name;
 
-        public FindsAttribute(string name)
+        public FindAssetNameAttribute(string name)
         {
             Name = name;
         }

@@ -169,26 +169,36 @@ namespace MornLib
                 return InjectChildrens(mb, so, field, deep: true);
             }
 
-            var findAttr = field.GetCustomAttribute<FindAttribute>();
-            if (findAttr != null)
+            var findNameAttr = field.GetCustomAttribute<FindNameAttribute>();
+            if (findNameAttr != null)
             {
-                return InjectFind(so, field, findAttr.Name);
+                return InjectFindName(so, field, findNameAttr.Name);
             }
 
-            var findsAttr = field.GetCustomAttribute<FindsAttribute>();
-            if (findsAttr != null)
+            if (field.GetCustomAttribute<FindTypeAttribute>() != null)
             {
-                return InjectFinds(so, field, findsAttr.Name);
+                return InjectFindType(so, field);
             }
 
-            if (field.GetCustomAttribute<FindAnyAttribute>() != null)
+            if (field.GetCustomAttribute<FindsTypeAttribute>() != null)
             {
-                return InjectFindAny(so, field);
+                return InjectFindsType(so, field);
             }
 
-            if (field.GetCustomAttribute<FindsAnyAttribute>() != null)
+            var findAssetNameAttr = field.GetCustomAttribute<FindAssetNameAttribute>();
+            if (findAssetNameAttr != null)
             {
-                return InjectFindsAny(so, field);
+                return InjectFindAssetName(so, field, findAssetNameAttr.Name);
+            }
+
+            if (field.GetCustomAttribute<FindAssetTypeAttribute>() != null)
+            {
+                return InjectFindAssetType(so, field);
+            }
+
+            if (field.GetCustomAttribute<FindAssetsTypeAttribute>() != null)
+            {
+                return InjectFindsAssetType(so, field);
             }
 
             return InjectResult.Skipped;
@@ -233,7 +243,7 @@ namespace MornLib
             if (components.Count >= 2)
             {
                 MornInjectLogger.LogError(
-                    $"{Describe(mb, field)}: {label} {field.FieldType.Name} が {components.Count} 件見つかりました（1 件のみ期待）");
+                    $"{Describe(mb, field)}: {label} {field.FieldType.Name} が {components.Count} 件見つかりました(1 件のみ期待)");
                 return InjectResult.Error;
             }
 
@@ -267,113 +277,81 @@ namespace MornLib
             return AssignArray(so, field, values);
         }
 
-        private static InjectResult InjectFind(SerializedObject so, FieldInfo field, string name)
+        private static InjectResult InjectFindName(SerializedObject so, FieldInfo field, string name)
         {
             var mb = (MonoBehaviour)so.targetObject;
-            if (!IsValidFindFieldType(field.FieldType))
+            if (!IsValidSceneFieldType(field.FieldType))
             {
-                MornInjectLogger.LogError($"{Describe(mb, field)}: [Find] は GameObject か Component 派生型のフィールドにのみ使用できます");
+                MornInjectLogger.LogError($"{Describe(mb, field)}: [FindName] は GameObject か Component 派生型のフィールドにのみ使用できます");
                 return InjectResult.Error;
             }
 
-            var matches = FindByName(name);
+            var matches = FindSceneTransformsByName(name);
             if (matches.Count == 0)
             {
-                MornInjectLogger.LogError($"{Describe(mb, field)}: [Find(\"{name}\")] 名前一致の GameObject が見つかりません");
+                MornInjectLogger.LogError($"{Describe(mb, field)}: [FindName(\"{name}\")] 名前一致の GameObject が見つかりません");
                 return InjectResult.Error;
             }
 
             if (matches.Count >= 2)
             {
                 MornInjectLogger.LogError(
-                    $"{Describe(mb, field)}: [Find(\"{name}\")] 名前一致が {matches.Count} 件見つかりました(1 件のみ期待)");
+                    $"{Describe(mb, field)}: [FindName(\"{name}\")] 名前一致が {matches.Count} 件見つかりました(1 件のみ期待)");
                 return InjectResult.Error;
             }
 
-            if (!TryResolveAsField(matches[0], field.FieldType, out var value))
+            if (!TryResolveSceneTarget(matches[0], field.FieldType, out var value))
             {
                 MornInjectLogger.LogError(
-                    $"{Describe(mb, field)}: [Find(\"{name}\")] {field.FieldType.Name} が {matches[0].name} に付いていません");
+                    $"{Describe(mb, field)}: [FindName(\"{name}\")] {field.FieldType.Name} が {matches[0].name} に付いていません");
                 return InjectResult.Error;
             }
 
             return AssignObject(so, field, value);
         }
 
-        private static InjectResult InjectFinds(SerializedObject so, FieldInfo field, string name)
-        {
-            var mb = (MonoBehaviour)so.targetObject;
-            if (!TryGetElementType(field.FieldType, out var elementType))
-            {
-                MornInjectLogger.LogError($"{Describe(mb, field)}: [Finds] は配列または List<T> 型のフィールドにのみ使用できます");
-                return InjectResult.Error;
-            }
-
-            if (!IsValidFindFieldType(elementType))
-            {
-                MornInjectLogger.LogError($"{Describe(mb, field)}: [Finds] の要素型は GameObject か Component 派生である必要があります");
-                return InjectResult.Error;
-            }
-
-            var matches = FindByName(name);
-            var values = new List<UnityEngine.Object>(matches.Count);
-            foreach (var t in matches)
-            {
-                if (!TryResolveAsField(t, elementType, out var value))
-                {
-                    MornInjectLogger.LogError(
-                        $"{Describe(mb, field)}: [Finds(\"{name}\")] {elementType.Name} が {t.name} に付いていません");
-                    return InjectResult.Error;
-                }
-
-                values.Add(value);
-            }
-
-            return AssignArray(so, field, values);
-        }
-
-        private static InjectResult InjectFindAny(SerializedObject so, FieldInfo field)
+        private static InjectResult InjectFindType(SerializedObject so, FieldInfo field)
         {
             var mb = (MonoBehaviour)so.targetObject;
             if (!typeof(Component).IsAssignableFrom(field.FieldType))
             {
-                MornInjectLogger.LogError($"{Describe(mb, field)}: [FindAny] は Component 派生型のフィールドにのみ使用できます");
+                MornInjectLogger.LogError($"{Describe(mb, field)}: [FindType] は Component 派生型のフィールドにのみ使用できます");
                 return InjectResult.Error;
             }
 
-            var matches = FindComponentsInScope(field.FieldType);
+            var matches = FindSceneComponentsByType(field.FieldType);
             if (matches.Count == 0)
             {
-                MornInjectLogger.LogError($"{Describe(mb, field)}: [FindAny] {field.FieldType.Name} がシーン内に見つかりません");
+                MornInjectLogger.LogError($"{Describe(mb, field)}: [FindType] {field.FieldType.Name} がシーン内に見つかりません");
                 return InjectResult.Error;
             }
 
             if (matches.Count >= 2)
             {
                 MornInjectLogger.LogError(
-                    $"{Describe(mb, field)}: [FindAny] {field.FieldType.Name} がシーン内に {matches.Count} 件見つかりました(1 件のみ期待)");
+                    $"{Describe(mb, field)}: [FindType] {field.FieldType.Name} がシーン内に {matches.Count} 件見つかりました(1 件のみ期待)");
                 return InjectResult.Error;
             }
 
             return AssignObject(so, field, matches[0]);
         }
 
-        private static InjectResult InjectFindsAny(SerializedObject so, FieldInfo field)
+        private static InjectResult InjectFindsType(SerializedObject so, FieldInfo field)
         {
             var mb = (MonoBehaviour)so.targetObject;
             if (!TryGetElementType(field.FieldType, out var elementType))
             {
-                MornInjectLogger.LogError($"{Describe(mb, field)}: [FindsAny] は配列または List<T> 型のフィールドにのみ使用できます");
+                MornInjectLogger.LogError($"{Describe(mb, field)}: [FindsType] は配列または List<T> 型のフィールドにのみ使用できます");
                 return InjectResult.Error;
             }
 
             if (!typeof(Component).IsAssignableFrom(elementType))
             {
-                MornInjectLogger.LogError($"{Describe(mb, field)}: [FindsAny] の要素型は Component 派生である必要があります");
+                MornInjectLogger.LogError($"{Describe(mb, field)}: [FindsType] の要素型は Component 派生である必要があります");
                 return InjectResult.Error;
             }
 
-            var matches = FindComponentsInScope(elementType);
+            var matches = FindSceneComponentsByType(elementType);
             var values = new List<UnityEngine.Object>(matches.Count);
             foreach (var c in matches)
             {
@@ -383,23 +361,81 @@ namespace MornLib
             return AssignArray(so, field, values);
         }
 
-        private static List<Component> FindComponentsInScope(Type componentType)
+        private static InjectResult InjectFindAssetName(SerializedObject so, FieldInfo field, string name)
         {
-            var result = new List<Component>();
-            var prefabStage = PrefabStageUtility.GetCurrentPrefabStage();
-            if (prefabStage != null)
+            var mb = (MonoBehaviour)so.targetObject;
+            if (!typeof(UnityEngine.Object).IsAssignableFrom(field.FieldType))
             {
-                result.AddRange(prefabStage.prefabContentsRoot.GetComponentsInChildren(componentType, true));
-                return result;
+                MornInjectLogger.LogError($"{Describe(mb, field)}: [FindAssetName] は UnityEngine.Object 派生型のフィールドにのみ使用できます");
+                return InjectResult.Error;
             }
 
-            var scene = SceneManager.GetActiveScene();
-            foreach (var root in scene.GetRootGameObjects())
+            var matches = FindAssetsByName(name, field.FieldType);
+            if (matches.Count == 0)
             {
-                result.AddRange(root.GetComponentsInChildren(componentType, true));
+                MornInjectLogger.LogError($"{Describe(mb, field)}: [FindAssetName(\"{name}\")] 名前一致の {field.FieldType.Name} アセットが見つかりません");
+                return InjectResult.Error;
             }
 
-            return result;
+            if (matches.Count >= 2)
+            {
+                MornInjectLogger.LogError(
+                    $"{Describe(mb, field)}: [FindAssetName(\"{name}\")] 名前一致が {matches.Count} 件見つかりました(1 件のみ期待)");
+                return InjectResult.Error;
+            }
+
+            return AssignObject(so, field, matches[0]);
+        }
+
+        private static InjectResult InjectFindAssetType(SerializedObject so, FieldInfo field)
+        {
+            var mb = (MonoBehaviour)so.targetObject;
+            if (!typeof(UnityEngine.Object).IsAssignableFrom(field.FieldType))
+            {
+                MornInjectLogger.LogError($"{Describe(mb, field)}: [FindAssetType] は UnityEngine.Object 派生型のフィールドにのみ使用できます");
+                return InjectResult.Error;
+            }
+
+            var matches = FindAssetsByType(field.FieldType);
+            if (matches.Count == 0)
+            {
+                MornInjectLogger.LogError($"{Describe(mb, field)}: [FindAssetType] {field.FieldType.Name} アセットが見つかりません");
+                return InjectResult.Error;
+            }
+
+            if (matches.Count >= 2)
+            {
+                MornInjectLogger.LogError(
+                    $"{Describe(mb, field)}: [FindAssetType] {field.FieldType.Name} アセットが {matches.Count} 件見つかりました(1 件のみ期待)");
+                return InjectResult.Error;
+            }
+
+            return AssignObject(so, field, matches[0]);
+        }
+
+        private static InjectResult InjectFindsAssetType(SerializedObject so, FieldInfo field)
+        {
+            var mb = (MonoBehaviour)so.targetObject;
+            if (!TryGetElementType(field.FieldType, out var elementType))
+            {
+                MornInjectLogger.LogError($"{Describe(mb, field)}: [FindAssetsType] は配列または List<T> 型のフィールドにのみ使用できます");
+                return InjectResult.Error;
+            }
+
+            if (!typeof(UnityEngine.Object).IsAssignableFrom(elementType))
+            {
+                MornInjectLogger.LogError($"{Describe(mb, field)}: [FindAssetsType] の要素型は UnityEngine.Object 派生である必要があります");
+                return InjectResult.Error;
+            }
+
+            var matches = FindAssetsByType(elementType);
+            var values = new List<UnityEngine.Object>(matches.Count);
+            foreach (var a in matches)
+            {
+                values.Add(a);
+            }
+
+            return AssignArray(so, field, values);
         }
 
         private static List<Component> GetDirectChildComponents(MonoBehaviour mb, Type componentType)
@@ -436,7 +472,7 @@ namespace MornLib
             return list;
         }
 
-        private static List<Transform> FindByName(string name)
+        private static List<Transform> FindSceneTransformsByName(string name)
         {
             var result = new List<Transform>();
             var prefabStage = PrefabStageUtility.GetCurrentPrefabStage();
@@ -468,7 +504,69 @@ namespace MornLib
             return result;
         }
 
-        private static bool IsValidFindFieldType(Type type)
+        private static List<Component> FindSceneComponentsByType(Type componentType)
+        {
+            var result = new List<Component>();
+            var prefabStage = PrefabStageUtility.GetCurrentPrefabStage();
+            if (prefabStage != null)
+            {
+                result.AddRange(prefabStage.prefabContentsRoot.GetComponentsInChildren(componentType, true));
+                return result;
+            }
+
+            var scene = SceneManager.GetActiveScene();
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                result.AddRange(root.GetComponentsInChildren(componentType, true));
+            }
+
+            return result;
+        }
+
+        private static List<UnityEngine.Object> FindAssetsByName(string name, Type type)
+        {
+            var list = new List<UnityEngine.Object>();
+            var guids = AssetDatabase.FindAssets($"{name} t:{type.Name}");
+            foreach (var guid in guids)
+            {
+                var path = AssetDatabase.GUIDToAssetPath(guid);
+                var asset = AssetDatabase.LoadAssetAtPath(path, type);
+                if (asset == null)
+                {
+                    continue;
+                }
+
+                if (asset.name != name)
+                {
+                    continue;
+                }
+
+                list.Add(asset);
+            }
+
+            return list;
+        }
+
+        private static List<UnityEngine.Object> FindAssetsByType(Type type)
+        {
+            var list = new List<UnityEngine.Object>();
+            var guids = AssetDatabase.FindAssets($"t:{type.Name}");
+            foreach (var guid in guids)
+            {
+                var path = AssetDatabase.GUIDToAssetPath(guid);
+                var asset = AssetDatabase.LoadAssetAtPath(path, type);
+                if (asset == null)
+                {
+                    continue;
+                }
+
+                list.Add(asset);
+            }
+
+            return list;
+        }
+
+        private static bool IsValidSceneFieldType(Type type)
         {
             return type == typeof(GameObject) || typeof(Component).IsAssignableFrom(type);
         }
@@ -491,7 +589,7 @@ namespace MornLib
             return false;
         }
 
-        private static bool TryResolveAsField(Transform target, Type fieldType, out UnityEngine.Object value)
+        private static bool TryResolveSceneTarget(Transform target, Type fieldType, out UnityEngine.Object value)
         {
             if (fieldType == typeof(GameObject))
             {

@@ -17,10 +17,12 @@ Unity Editor 上で `[SerializeField]` フィールドへのコンポーネン�
 | `[ChildDeep]` | 子孫全体 | 型一致のコンポーネント (単数、2 件以上でエラー) |
 | `[Childrens]` | 直下の子 | 型一致のコンポーネント配列 / `List<T>` |
 | `[ChildrensDeep]` | 子孫全体 | 型一致のコンポーネント配列 / `List<T>` |
-| `[Find("name")]` | シーン全体 (PrefabStage 中はステージ内) | 完全一致名 GameObject / Component (単数、2 件以上でエラー) |
-| `[Finds("name")]` | シーン全体 (PrefabStage 中はステージ内) | 完全一致名 GameObject / Component 配列 / `List<T>` |
-| `[FindAny]` | シーン全体 (PrefabStage 中はステージ内) | 型一致のコンポーネント (単数、2 件以上でエラー) |
-| `[FindsAny]` | シーン全体 (PrefabStage 中はステージ内) | 型一致のコンポーネント配列 / `List<T>` |
+| `[FindName("name")]` | シーン全体 (PrefabStage 中はステージ内) | 完全一致名の GameObject / Component (単数、2 件以上でエラー) |
+| `[FindType]` | シーン全体 (PrefabStage 中はステージ内) | 型一致のコンポーネント (単数、2 件以上でエラー) |
+| `[FindsType]` | シーン全体 (PrefabStage 中はステージ内) | 型一致のコンポーネント配列 / `List<T>` |
+| `[FindAssetName("name")]` | プロジェクト全体 (`AssetDatabase`) | 完全一致名 + 型一致のアセット (単数、2 件以上でエラー) |
+| `[FindAssetType]` | プロジェクト全体 (`AssetDatabase`) | 型一致のアセット (単数、2 件以上でエラー) |
+| `[FindAssetsType]` | プロジェクト全体 (`AssetDatabase`) | 型一致のアセット配列 / `List<T>` |
 | `[OnMornInject]` | メソッド属性 | 注入完了後に呼び出されるフック (基底 → 派生の順で引数なし void メソッドを実行) |
 
 ## 使い方
@@ -32,7 +34,11 @@ public sealed class SampleMono : MonoBehaviour
     [Child] [SerializeField] private Button _okButton;
     [ChildDeep] [SerializeField] private Canvas _canvas;
     [Childrens] [SerializeField] private List<Image> _images;
-    [Find("MainCamera")] [SerializeField] private Camera _camera;
+    [FindName("MainCamera")] [SerializeField] private Camera _camera;
+    [FindType] [SerializeField] private GameManager _manager;
+    [FindAssetType] [SerializeField] private GameSettings _settings;
+    [FindAssetsType] [SerializeField] private List<EnemySettings> _enemies;
+    [FindAssetName("Default")] [SerializeField] private Texture2D _defaultTexture;
 
     [OnMornInject]
     private void OnInject()
