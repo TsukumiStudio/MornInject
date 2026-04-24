@@ -19,6 +19,8 @@ Unity Editor 上で `[SerializeField]` フィールドへのコンポーネン�
 | `[ChildrensDeep]` | 子孫全体 | 型一致のコンポーネント配列 / `List<T>` |
 | `[Find("name")]` | シーン全体 (PrefabStage 中はステージ内) | 完全一致名 GameObject / Component (単数、2 件以上でエラー) |
 | `[Finds("name")]` | シーン全体 (PrefabStage 中はステージ内) | 完全一致名 GameObject / Component 配列 / `List<T>` |
+| `[FindAny]` | シーン全体 (PrefabStage 中はステージ内) | 型一致のコンポーネント (単数、2 件以上でエラー) |
+| `[FindsAny]` | シーン全体 (PrefabStage 中はステージ内) | 型一致のコンポーネント配列 / `List<T>` |
 | `[OnMornInject]` | メソッド属性 | 注入完了後に呼び出されるフック (基底 → 派生の順で引数なし void メソッドを実行) |
 
 ## 使い方

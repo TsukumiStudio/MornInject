@@ -181,6 +181,16 @@ namespace MornLib
                 return InjectFinds(so, field, findsAttr.Name);
             }
 
+            if (field.GetCustomAttribute<FindAnyAttribute>() != null)
+            {
+                return InjectFindAny(so, field);
+            }
+
+            if (field.GetCustomAttribute<FindsAnyAttribute>() != null)
+            {
+                return InjectFindsAny(so, field);
+            }
+
             return InjectResult.Skipped;
         }
 
@@ -320,6 +330,76 @@ namespace MornLib
             }
 
             return AssignArray(so, field, values);
+        }
+
+        private static InjectResult InjectFindAny(SerializedObject so, FieldInfo field)
+        {
+            var mb = (MonoBehaviour)so.targetObject;
+            if (!typeof(Component).IsAssignableFrom(field.FieldType))
+            {
+                MornInjectLogger.LogError($"{Describe(mb, field)}: [FindAny] は Component 派生型のフィールドにのみ使用できます");
+                return InjectResult.Error;
+            }
+
+            var matches = FindComponentsInScope(field.FieldType);
+            if (matches.Count == 0)
+            {
+                MornInjectLogger.LogError($"{Describe(mb, field)}: [FindAny] {field.FieldType.Name} がシーン内に見つかりません");
+                return InjectResult.Error;
+            }
+
+            if (matches.Count >= 2)
+            {
+                MornInjectLogger.LogError(
+                    $"{Describe(mb, field)}: [FindAny] {field.FieldType.Name} がシーン内に {matches.Count} 件見つかりました(1 件のみ期待)");
+                return InjectResult.Error;
+            }
+
+            return AssignObject(so, field, matches[0]);
+        }
+
+        private static InjectResult InjectFindsAny(SerializedObject so, FieldInfo field)
+        {
+            var mb = (MonoBehaviour)so.targetObject;
+            if (!TryGetElementType(field.FieldType, out var elementType))
+            {
+                MornInjectLogger.LogError($"{Describe(mb, field)}: [FindsAny] は配列または List<T> 型のフィールドにのみ使用できます");
+                return InjectResult.Error;
+            }
+
+            if (!typeof(Component).IsAssignableFrom(elementType))
+            {
+                MornInjectLogger.LogError($"{Describe(mb, field)}: [FindsAny] の要素型は Component 派生である必要があります");
+                return InjectResult.Error;
+            }
+
+            var matches = FindComponentsInScope(elementType);
+            var values = new List<UnityEngine.Object>(matches.Count);
+            foreach (var c in matches)
+            {
+                values.Add(c);
+            }
+
+            return AssignArray(so, field, values);
+        }
+
+        private static List<Component> FindComponentsInScope(Type componentType)
+        {
+            var result = new List<Component>();
+            var prefabStage = PrefabStageUtility.GetCurrentPrefabStage();
+            if (prefabStage != null)
+            {
+                result.AddRange(prefabStage.prefabContentsRoot.GetComponentsInChildren(componentType, true));
+                return result;
+            }
+
+            var scene = SceneManager.GetActiveScene();
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                result.AddRange(root.GetComponentsInChildren(componentType, true));
+            }
+
+            return result;
         }
 
         private static List<Component> GetDirectChildComponents(MonoBehaviour mb, Type componentType)
