@@ -102,44 +102,67 @@ namespace MornLib
 
         private static void InvokeOnMornInject(MonoBehaviour mb)
         {
+            var hookMethods = CollectOnMornInjectMethods(mb.GetType());
+            if (hookMethods.Count == 0)
+            {
+                return;
+            }
+
+            Undo.RecordObject(mb, "OnMornInject");
+            foreach (var method in hookMethods)
+            {
+                if (method.GetParameters().Length > 0)
+                {
+                    MornInjectLogger.LogError($"{method.DeclaringType?.Name}.{method.Name}: [OnMornInject] は引数なしのメソッドにのみ使用できます");
+                    continue;
+                }
+
+                if (method.ReturnType != typeof(void))
+                {
+                    MornInjectLogger.LogError($"{method.DeclaringType?.Name}.{method.Name}: [OnMornInject] は戻り値 void のメソッドにのみ使用できます");
+                    continue;
+                }
+
+                try
+                {
+                    method.Invoke(mb, null);
+                }
+                catch (Exception e)
+                {
+                    MornInjectLogger.LogError($"{method.DeclaringType?.Name}.{method.Name}: [OnMornInject] 実行中に例外が発生しました\n{e}");
+                }
+            }
+
+            EditorUtility.SetDirty(mb);
+            var scene = mb.gameObject.scene;
+            if (scene.IsValid())
+            {
+                EditorSceneManager.MarkSceneDirty(scene);
+            }
+        }
+
+        private static List<MethodInfo> CollectOnMornInjectMethods(Type type)
+        {
             var types = new List<Type>();
-            foreach (var t in EnumerateUserTypes(mb.GetType()))
+            foreach (var t in EnumerateUserTypes(type))
             {
                 types.Add(t);
             }
 
             types.Reverse();
-            foreach (var type in types)
+            var list = new List<MethodInfo>();
+            foreach (var t in types)
             {
-                foreach (var method in type.GetMethods(MemberFlags))
+                foreach (var method in t.GetMethods(MemberFlags))
                 {
-                    if (method.GetCustomAttribute<OnMornInjectAttribute>() == null)
+                    if (method.GetCustomAttribute<OnMornInjectAttribute>() != null)
                     {
-                        continue;
-                    }
-
-                    if (method.GetParameters().Length > 0)
-                    {
-                        MornInjectLogger.LogError($"{type.Name}.{method.Name}: [OnMornInject] は引数なしのメソッドにのみ使用できます");
-                        continue;
-                    }
-
-                    if (method.ReturnType != typeof(void))
-                    {
-                        MornInjectLogger.LogError($"{type.Name}.{method.Name}: [OnMornInject] は戻り値 void のメソッドにのみ使用できます");
-                        continue;
-                    }
-
-                    try
-                    {
-                        method.Invoke(mb, null);
-                    }
-                    catch (Exception e)
-                    {
-                        MornInjectLogger.LogError($"{type.Name}.{method.Name}: [OnMornInject] 実行中に例外が発生しました\n{e}");
+                        list.Add(method);
                     }
                 }
             }
+
+            return list;
         }
 
         private static InjectResult ProcessField(MonoBehaviour mb, SerializedObject so, FieldInfo field)
