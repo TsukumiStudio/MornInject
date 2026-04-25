@@ -510,7 +510,8 @@ namespace MornLib
         private static List<UnityEngine.Object> FindAssets(Type type, string name)
         {
             var list = new List<UnityEngine.Object>();
-            var filter = string.IsNullOrEmpty(name) ? $"t:{type.Name}" : $"{name} t:{type.Name}";
+            var typeFilter = typeof(Component).IsAssignableFrom(type) ? "t:Prefab" : $"t:{type.Name}";
+            var filter = string.IsNullOrEmpty(name) ? typeFilter : $"{name} {typeFilter}";
             var guids = AssetDatabase.FindAssets(filter);
             foreach (var guid in guids)
             {
