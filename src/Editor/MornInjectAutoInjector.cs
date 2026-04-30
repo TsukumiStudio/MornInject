@@ -181,7 +181,7 @@ namespace MornLib
             var childrensAttr = field.GetCustomAttribute<ChildrensAttribute>();
             if (childrensAttr != null)
             {
-                return InjectChildrens(mb, so, field, childrensAttr.Deep, childrensAttr.Name);
+                return InjectChildrens(mb, so, field, childrensAttr.Deep, childrensAttr.IncludeSelf, childrensAttr.Name);
             }
 
             var findAttr = field.GetCustomAttribute<FindAttribute>();
@@ -255,7 +255,7 @@ namespace MornLib
             return AssignObject(so, field, components[0]);
         }
 
-        private static InjectResult InjectChildrens(MonoBehaviour mb, SerializedObject so, FieldInfo field, bool deep, string name)
+        private static InjectResult InjectChildrens(MonoBehaviour mb, SerializedObject so, FieldInfo field, bool deep, bool includeSelf, string name)
         {
             var label = FormatChildLabel("Childrens", deep, name);
             if (!TryGetElementType(field.FieldType, out var elementType))
@@ -271,6 +271,19 @@ namespace MornLib
             }
 
             var components = CollectChildComponents(mb, elementType, deep, name);
+            if (includeSelf)
+            {
+                var selfComponents = mb.GetComponents(elementType);
+                for (var i = selfComponents.Length - 1; i >= 0; i--)
+                {
+                    var self = selfComponents[i];
+                    if (string.IsNullOrEmpty(name) || self.gameObject.name == name)
+                    {
+                        components.Insert(0, self);
+                    }
+                }
+            }
+
             var values = new List<UnityEngine.Object>(components.Count);
             foreach (var c in components)
             {

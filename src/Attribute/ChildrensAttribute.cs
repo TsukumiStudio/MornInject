@@ -6,6 +6,7 @@ namespace MornLib
     {
         public readonly string Name;
         public readonly bool Deep;
+        public readonly bool IncludeSelf;
 
         public ChildrensAttribute()
         {
@@ -14,6 +15,12 @@ namespace MornLib
         public ChildrensAttribute(bool deep)
         {
             Deep = deep;
+        }
+
+        public ChildrensAttribute(bool deep, bool includeSelf)
+        {
+            Deep = deep;
+            IncludeSelf = includeSelf;
         }
 
         public ChildrensAttribute(string name, bool deep = false)
